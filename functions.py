@@ -27,15 +27,16 @@ from sklearn.ensemble import RandomForestClassifier
 from sklearn.pipeline import Pipeline
 from sklearn import metrics
 from sklearn.model_selection import GridSearchCV
-from sklearn.metrics import accuracy_score
-from sklearn.metrics import f1_score
+from sklearn.metrics import f1_score, balanced_accuracy_score, accuracy_score, roc_auc_score, precision_score, recall_score
 from sklearn.model_selection import KFold
 from sklearn.model_selection import cross_val_score
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.ensemble import ExtraTreesClassifier
 from sklearn.svm import SVC
-from sklearn.base import BaseEstimator, TransformerMixin
+from sklearn.base import BaseEstimator, ClassifierMixin, TransformerMixin
 from gensim.models.doc2vec import Doc2Vec, TaggedDocument
+
+# Esse arquivo contém as funções utilizadas nos outros códigos
 
 # Essa função recebe um data frame e retorna duas colunas
 def return_columns(dataFrame, a_col, b_col):
@@ -231,6 +232,10 @@ def choose_algorithm(alg):
             print("\nExecutando o algoritmo de Naive Bayes")
             alg = MultinomialNB()
 
+        # Realiza previsões aleatórias
+        elif(alg=='random_predictions'):
+            return 'random_predictions'
+
         else:
             print("Não foi possível identificar um algoritmo")
 
@@ -257,7 +262,8 @@ def indentify_title(sentence):
         'svm', 
         'extraTrees', 
         'randomForest', 
-        'naiveBayes'
+        'naiveBayes',
+        'random_predictions'
     ]
     
     pre_processing_list = [ 
@@ -271,14 +277,113 @@ def indentify_title(sentence):
     for item in dataSet_list:
         if re.search(item, sentence):
             dataSet=item
+
     for item in algorithms_list:
         if re.search(item, sentence):
             algorithm=item
+
     for item in pre_processing_list:
         if re.search(item, sentence):
             pre_processing=item
 
-    return dataSet, algorithm, pre_processing
+    if dataSet=='base1':
+        dataSet='Train100'
+        dataSetSize='100000'
+    elif dataSet=='base2':
+        dataSet='Train200'
+        dataSetSize='200000'
+    elif dataSet=='base3':
+        dataSet='Train300'
+        dataSetSize='300000'
+    else: 
+        dataSetSize='Não identificado'
+
+    if pre_processing=='doc2vec':
+        pre_processing='Limpo'
+        vectorization='Doc2Vec'
+    elif pre_processing=='limpo':
+        pre_processing='Limpo'
+        vectorization='TF-IDF'
+    elif pre_processing=='removeStopwords':
+        pre_processing='Remoção de Stopwords'
+        vectorization='TF-IDF'
+    elif pre_processing=='lem':
+        pre_processing='Lematização'
+        vectorization='TF-IDF'
+    elif pre_processing=='stem':
+        pre_processing='Stemming'
+        vectorization='TF-IDF'
+    else:
+        pre_processing='Nenhum'
+        vectorization='Nenhum'
+   
+    if algorithm=='naiveBayes':
+        algorithm='Naive Bayes'
+    elif algorithm=='regLog':
+        algorithm='Logistic Regression'
+    elif algorithm=='svm':
+        algorithm='Support Vector Machines'
+    elif algorithm=='extraTrees':
+        algorithm='Extra Trees Classifier'
+    elif algorithm=='randomForest':
+        algorithm='Random Forest'
+    elif algorithm=='random_predictions':
+        algorithm='Teste Aleatório'
+    else:
+        algorithm='Não identificado'
+
+    title_attributes = []
+    title_attributes = [dataSet, dataSetSize, pre_processing, vectorization, algorithm]
+
+    return title_attributes
+
+# Gera um array do tamanho especificado com valores aleatorios entre 0 e 1
+def generate_binary_array(size):
+    binary_array = [random.randint(0, 1) for _ in range(size)]
+    return binary_array
+
+# Retorna uma porcentagem indicando o quão similar são os dois arrays comparados
+def compare_arrays(array1, array2):
+    if len(array1) != len(array2):
+        raise ValueError("Os arrays devem ter o mesmo tamanho")
+
+    count = sum(1 for a, b in zip(array1, array2) if a == b)
+    percentage = count / len(array1)
+    return percentage
+
+# Cria um array com valores aleatórios entre 1 e 0, do mesmo tamanho de um array recebido
+def random_prediction(classes):
+    f1_results = []
+    balanced_acc_results = []
+    roc_auc_results = []
+    precision_results = []
+    recall_results = []
+
+    # Roda o código 10 vezes
+    for i in range(10):
+        random_prediction = generate_binary_array(len(classes))
+        compare_results = compare_arrays(classes, random_prediction)
+        print(f"A porcentagem de elementos iguais é: {compare_results:.2%}")
+
+        f1 = f1_score(classes, random_prediction)
+        f1_results.append(f1)
+        balanced_acc = balanced_accuracy_score(classes, random_prediction)
+        balanced_acc_results.append(balanced_acc)
+        roc_auc = roc_auc_score(classes, random_prediction)
+        roc_auc_results.append(roc_auc)
+        precision = precision_score(classes, random_prediction)
+        precision_results.append(precision)
+        recall = recall_score(classes, random_prediction)
+        recall_results.append(recall)
+
+    f1_mean = sum(f1_results) / len(f1_results)
+    balanced_acc_mean = sum(balanced_acc_results) / len(balanced_acc_results)
+    roc_auc_mean = sum(roc_auc_results) / len(roc_auc_results)
+    precision_mean = sum(precision_results) / len(precision_results)
+    recall_mean = sum(recall_results) / len(recall_results)
+
+    resultados_finais = [f1_mean, balanced_acc_mean, roc_auc_mean, precision_mean, recall_mean]
+    return resultados_finais
 
 class Doc2VecVectorizer(BaseEstimator, TransformerMixin):
     def __init__(self, doc2vec_model):
@@ -290,3 +395,4 @@ class Doc2VecVectorizer(BaseEstimator, TransformerMixin):
     def transform(self, X):
         # Transforma os documentos em vetores usando o modelo Doc2Vec
         return [self.doc2vec_model.infer_vector(doc.split()) for doc in X]
+    
